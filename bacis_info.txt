@@ -1,5 +1,6 @@
 Εκφώνηση 
 
+
 Part A
 ● Load stereoscopic images of scenes. Prefer scenes with large planar areas with large objects on
 them, such as cars.
@@ -25,14 +26,30 @@ Info
 
 Stereoscopic images of scenes
 
-Stereoscopic images of scenes are images that are designed to create the illusion of depth and dimensionality by simulating the way that human eyes perceive the world. They are typically created by taking two slightly different images of the same scene, from two different perspectives that correspond to the separation between the human eyes, and then presenting them to each eye separately, such as through a stereoscope or with 3D glasses.
+Stereoscopic images of scenes are images that are designed to create
+the illusion of depth and dimensionality by simulating the way that
+human eyes perceive the world. They are typically created by taking 
+two slightly different images of the same scene, from two different 
+perspectives that correspond to the separation between the human eyes, 
+and then presenting them to each eye separately, such as through a 
+stereoscope or with 3D glasses.
 
 Disparity maps
 
-Disparity maps are a way of representing the differences or disparities between the two images in a stereoscopic image pair. They are typically used in computer vision and image processing to extract depth information from stereo images, and to create 3D reconstructions of scenes. To create a disparity map, computer algorithms analyze the differences between corresponding points in the left and right images of a stereo pair. By comparing the location of each point in both images, the algorithm can determine how far away the object is from the camera. This distance information is then used to create a depth map or 3D reconstruction of the scene.
+Disparity maps are a way of representing the differences or disparities between
+the two images in a stereoscopic image pair. They are typically used in computer vision
+and image processing to extract depth information from stereo images, and to create 3D
+reconstructions of scenes. To create a disparity map, computer algorithms analyze the 
+differences between corresponding points in the left and right images of a stereo pair.
+By comparing the location of each point in both images, the algorithm can determine 
+how far away the object is from the camera. This distance information is then used 
+to create a depth map or 3D reconstruction of the scene.
 
 stereo images
-Stereo images are a pair of two-dimensional images that are taken from slightly different angles or positions, with one image for the left eye and one for the right eye. The two images are designed to create the illusion of depth and dimensionality when viewed together, similar to how human eyes perceive the world.
+Stereo images are a pair of two-dimensional images that are taken from slightly
+different angles or positions, with one image for the left eye and one for the 
+right eye. The two images are designed to create the illusion of depth and
+dimensionality when viewed together, similar to how human eyes perceive the world.
 
 
 
