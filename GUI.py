@@ -2,13 +2,13 @@ import numpy as np
 import utility as U
 
 def main():
-    # part_a paths to point cloud
-    vertices_path = './part_a/pointcloud/vertices.npy'
-    colors_path = './part_a/pointcloud/colors.npy'
+    # pointcloud paths
+    vertices_path = 'pointcloud/vertices.npy'
+    colors_path = 'pointcloud/colors.npy'
 
-    # part_b paths to point cloud
-    # vertices_path = './part_b/pointcloud/gt_vertices.npy'
-    # colors_path = './part_b/pointcloud/gt_colors.npy'
+    # gt_pointcloud paths
+    vertices_path = 'pointcloud/gt_vertices.npy'
+    colors_path = 'pointcloud/gt_colors.npy'
 
     # load vertices and colors
     vertices = np.load(vertices_path)
