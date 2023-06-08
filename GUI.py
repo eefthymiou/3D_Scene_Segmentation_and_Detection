@@ -10,6 +10,14 @@ def main():
     vertices_path = 'pointcloud/gt_vertices.npy'
     colors_path = 'pointcloud/gt_colors.npy'
 
+    # load inliers
+    vertices_path = 'pointcloud/inlier_vertices.npy'
+    colors_path = 'pointcloud/inlier_colors.npy'
+
+    # load outliers
+    # vertices_path = 'pointcloud/outlier_vertices.npy'
+    # colors_path = 'pointcloud/outlier_colors.npy'
+
     # load vertices and colors
     vertices = np.load(vertices_path)
     colors = np.load(colors_path)
