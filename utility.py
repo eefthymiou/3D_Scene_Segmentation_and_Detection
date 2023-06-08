@@ -47,6 +47,7 @@ def visualize_disparity_map(disparity_map, cmap='jet'):
     plt.show()
 
 def visualize_point_cloud(pc, colors=None):
+    print("start visualization")
     pc = o3d.utility.Vector3dVector(pc)
     pc = o3d.geometry.PointCloud(pc)
     if colors is not None:
@@ -64,5 +65,6 @@ def visualize_point_cloud(pc, colors=None):
 
     # Close the window
     vis.destroy_window()
+    print("end visualization")
         
         
