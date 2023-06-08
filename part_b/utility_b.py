@@ -101,10 +101,8 @@ def cost_function(inliers_count, inliers_colors_variance, per_cent_of_points_clo
 
     return total_cost
 
-def ransac_line_fit(points, colors, n_iterations, threshold_distance):
+def ransac_line_fit(points, colors, n_iterations, threshold_distance, color_threshold_distance):
     best_inliers = []
-    max_combined_measure = 0
-    total_inliers = 0
     min_cost = np.inf
 
     for _ in range(n_iterations):
@@ -129,10 +127,8 @@ def ransac_line_fit(points, colors, n_iterations, threshold_distance):
 
         # compute the mean of inliers colors
         inliers_colors_mean = np.mean(inliers_colors, axis=0)
-        color_threshold_distance = 0.3
         num_close_points = count_points_close_to_mean_color(inliers_colors, inliers_colors_mean, color_threshold_distance)
         per_cent_of_points_close_to_mean_color = num_close_points/inliers_count
-
 
         cost = cost_function(inliers_count, inliers_colors_variance, per_cent_of_points_close_to_mean_color)
 
