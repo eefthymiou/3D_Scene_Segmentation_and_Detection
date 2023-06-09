@@ -136,6 +136,39 @@ def ransac_line_fit(points, colors, n_iterations, threshold_distance, color_thre
         if cost<min_cost:
             min_cost = cost
             best_inliers = inliers
-            print("inliers:", inliers_count, "variance:", inliers_colors_variance, "per cent mean color:",per_cent_of_points_close_to_mean_color ,"cost:", cost)
+            # print("inliers:", inliers_count, "variance:", inliers_colors_variance, "per cent mean color:",per_cent_of_points_close_to_mean_color ,"cost:", cost)
            
     return best_inliers
+
+
+def neighbors_inlier(inlier_points, outlier_points, inlier_colors, outlier_colors, n_iterations, threashold_distance, color_threshold_distance):
+    # get the mean inlier color
+    inlier_color_mean = np.mean(inlier_colors, axis=0)
+    # find the points which have simmilat color with the inlier point
+    color_distances = np.linalg.norm(outlier_colors - inlier_color_mean, axis=1)
+    possible_neighbor_inliers = np.where(color_distances < color_threshold_distance)[0]
+    outlier_points = outlier_points[possible_neighbor_inliers]
+    outlier_colors = outlier_colors[possible_neighbor_inliers]
+    print("possible neighbor inlier points after color comparison:", possible_neighbor_inliers.shape)
+
+
+    for i in range(n_iterations):
+        # get a random inlier point
+        index = np.random.choice(len(inlier_points), 1, replace=False)
+        inlier_point = inlier_points[index]
+
+        # compute the distances from all points to the inlier point 
+        distances = np.linalg.norm(outlier_points - inlier_point, axis=1)
+
+        # for each point if the distance in less than the threshold distance add it to inliers
+        neighbor_inliers = np.where(distances < threashold_distance)[0]
+
+        # append each index of neighboor inliers to total neighboor inliers indicies
+        if i == 0:
+            total_neighbor_inliers_indicies = neighbor_inliers
+        else:
+            new_indices = np.setdiff1d(neighbor_inliers, total_neighbor_inliers_indicies)
+            total_neighbor_inliers_indicies = np.append(total_neighbor_inliers_indicies, new_indices)
+
+    return total_neighbor_inliers_indicies, outlier_points, outlier_colors
+    

@@ -4,10 +4,10 @@ import utility as U
 def main():
     # 1 -> my pointcloud
     # 2 -> gt pointcloud
-    # 3 -> inliers (plane)
+    # 3 -> inliers (planes)
     # 4 -> outliers (objects)
 
-    select_poincloud = 5
+    select_poincloud = 4
 
     if select_poincloud == 0:
         # pointcloud paths
@@ -22,28 +22,26 @@ def main():
     elif select_poincloud == 2:
         # load inliers
         # inliers are the points of plane
-        vertices_path = 'pointcloud/inlier_vertices.npy'
-        colors_path = 'pointcloud/inlier_colors.npy'
+        vertices_path = 'pointcloud/gt_planes.npy'
+        colors_path = 'pointcloud/gt_planes_colors.npy'
 
     elif select_poincloud == 3:
         # load outliers
         # outliers are the points of objects
-        vertices_path = 'pointcloud/outlier_vertices.npy'
-        colors_path = 'pointcloud/outlier_colors.npy'
+        vertices_path = 'pointcloud/gt_objects.npy'
+        colors_path = 'pointcloud/gt_objects_colors.npy'
 
     elif select_poincloud == 4:
-        # load inliers 2
+        # load inliers
         # inliers are the points of plane
-        vertices_path = 'pointcloud/inlier_vertices2.npy'
-        colors_path = 'pointcloud/inlier_colors2.npy'
+        vertices_path = 'pointcloud/my_planes.npy'
+        colors_path = 'pointcloud/my_planes_colors.npy'
 
     elif select_poincloud == 5:
-        # load outliers 2
+        # load outliers
         # outliers are the points of objects
-        vertices_path = 'pointcloud/outlier_vertices2.npy'
-        colors_path = 'pointcloud/outlier_colors2.npy'
-    
-
+        vertices_path = 'pointcloud/my_objects.npy'
+        colors_path = 'pointcloud/my_objects_colors.npy'
 
 
     # load vertices and colors
