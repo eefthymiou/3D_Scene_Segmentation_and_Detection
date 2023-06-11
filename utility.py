@@ -6,6 +6,18 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
 
+#constants
+red = np.array([1,0,0])
+green = np.array([0,1,0])
+blue = np.array([0,0,1])
+cyan = np.array([0,1,1])
+yellow = np.array([1,1,0])
+magenta = np.array([1,0,1])
+black = np.array([0,0,0])
+white = np.array([1,1,1])
+
+
+
 def disp_image_and_rectangle(img, rect_start, template_rows, template_cols):
     # Display the original image
     plt.imshow(img, cmap='gray')
@@ -50,13 +62,16 @@ def visualize_point_cloud(pc, colors=None):
     print("start visualization")
     pc = o3d.utility.Vector3dVector(pc)
     pc = o3d.geometry.PointCloud(pc)
+
     if colors is not None:
-        pc.colors = o3d.utility.Vector3dVector(colors)
+        if colors.shape[-1] == 3:
+            print("RGB")
+            pc.colors = o3d.utility.Vector3dVector(colors)
 
     vis = o3d.visualization.Visualizer()  # Create a visualizer object
     vis.create_window()  # Create a window for visualization
     vis.add_geometry(pc)  # Add the point cloud to the visualizer
-    vis.run() 
+    vis.run()
 
     while True:
         # Check for keyboard event
@@ -66,5 +81,5 @@ def visualize_point_cloud(pc, colors=None):
     # Close the window
     vis.destroy_window()
     print("end visualization")
-        
+
         
