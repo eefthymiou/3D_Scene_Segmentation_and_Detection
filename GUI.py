@@ -9,7 +9,7 @@ def main():
     # 5 -> inliers (my planes)
     # 6 -> outliers (my objects)
 
-    select_pointcloud = 5
+    select_pointcloud = 6
 
     if select_pointcloud == 0:
         # pointcloud paths
