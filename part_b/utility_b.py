@@ -1,4 +1,6 @@
 import numpy as np
+import open3d as o3d
+from scipy.spatial import ConvexHull
 
 def ransac_plane_fit(points, n_iterations, threshold_distance):
     best_plane = None
@@ -171,4 +173,58 @@ def neighbors_inlier(inlier_points, outlier_points, inlier_colors, outlier_color
             total_neighbor_inliers_indicies = np.append(total_neighbor_inliers_indicies, new_indices)
 
     return total_neighbor_inliers_indicies, outlier_points, outlier_colors
+    
+
+def chull_3D_pc(vertices, colors):
+    # compute the convex hull
+    hull = ConvexHull(vertices)
+
+    hull_vertices = vertices[hull.vertices]
+    hull_faces = hull.simplices
+    hull_colors = colors[hull.vertices]
+
+    hull_mesh = o3d.geometry.TriangleMesh()
+    hull_mesh.vertices = o3d.utility.Vector3dVector(hull_vertices)
+    hull_mesh.triangles = o3d.utility.Vector3iVector(hull_faces)
+    hull_mesh.vertex_colors = o3d.utility.Vector3dVector(hull_colors)
+
+    remaining_indices = np.delete(np.arange(vertices.shape[0]), hull.vertices)
+    non_hull_vertices = vertices[remaining_indices]
+    non_hull_colors = colors[remaining_indices]
+
+    remaining_cloud = o3d.geometry.PointCloud()
+    remaining_cloud.points = o3d.utility.Vector3dVector(non_hull_vertices)
+    remaining_cloud.colors = o3d.utility.Vector3dVector(non_hull_colors)
+
+    return hull_mesh, remaining_cloud
+
+def chull_2D_pc(vertices, colors):
+    # z value 
+    z = np.zeros((vertices.shape[0], 1))
+    # remove z value 
+    vertices = np.delete(vertices, 2, 1)
+    # calculate the convex hull
+    hull = ConvexHull(vertices)
+    # add z value to the vertices
+    vertices = np.append(vertices, z, axis=1)
+
+    hull_vertices = vertices[hull.vertices]
+    hull_edges = hull.simplices
+    hull_colors = colors[hull.vertices]
+
+    hull_lineset = o3d.geometry.LineSet()
+    hull_lineset.points = o3d.utility.Vector3dVector(hull_vertices)
+    hull_lineset.lines = o3d.utility.Vector2iVector(hull_edges)
+    hull_lineset.colors = o3d.utility.Vector3dVector(hull_colors)
+
+    remaining_indices = np.delete(np.arange(vertices.shape[0]), hull.vertices)
+    non_hull_vertices = vertices[remaining_indices]
+    non_hull_colors = colors[remaining_indices]
+
+    remaining_cloud = o3d.geometry.PointCloud()
+    remaining_cloud.points = o3d.utility.Vector3dVector(non_hull_vertices)
+    remaining_cloud.colors = o3d.utility.Vector3dVector(non_hull_colors)
+
+    return hull_lineset, remaining_cloud
+
     
