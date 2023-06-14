@@ -1,41 +1,29 @@
+
 import numpy as np
 import open3d as o3d
-import utility as U
+
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
 import matplotlib.pyplot as plt
-plt.style.use('seaborn')
 
-if __name__ == "__main__":
-    # load point cloud
-    X = np.load("pointcloud/gt_objects_clustered.npy")
-    colors = np.load("pointcloud/gt_objects_colors_clustered.npy")
+import os
 
-    print("vertices shape:",X.shape)
+import part_b.utility_b as U
 
-    # create a convex hull mesh
-    hull = ConvexHull(X)
+# import point cloud
+vertices = np.load('pointcloud/gt_objects_clustered.npy')
+colors = np.load('pointcloud/gt_objects_clustered.npy')
 
-    print(hull.vertices.shape)
+hull_mesh = U.chull_3D_pc(vertices)
 
-    # Get the indices of points in convex hull
-    indices = hull.vertices
-    # delete these points from the point cloud and color array
-    remaining_vertices = np.delete(X, indices, axis=0)
-    remaining_colors = np.delete(colors, indices, axis=0)
+directory = 'clusters/gt_clusters/cluster_4'
+# Save the remaining point cloud colors as a NPY files
+# Save the convex hull as an OBJ file
+o3d.io.write_triangle_mesh(os.path.join(directory, "convex_hull.obj"), hull_mesh)
 
-    fig = plt.figure(figsize = (20,10),facecolor="w") 
-    ax = plt.axes(projection="3d") 
-
-    for simplex in hull.simplices:
-        ax.plot3D(X[simplex, 0], X[simplex, 1],X[simplex, 2], 's-') 
-    
-    ax.scatter3D(remaining_vertices[:, 0], remaining_vertices[:, 1], remaining_vertices[:, 2], c=remaining_colors, marker='o')
-    
-    plt.show()
-
-    
+# Save the remaining point cloud colors as a NPY files
+np.save(os.path.join(directory, "remaining_points.npy"), vertices)
     
 
-    
+
 
 

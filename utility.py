@@ -82,4 +82,31 @@ def visualize_point_cloud(pc, colors=None):
     vis.destroy_window()
     print("end visualization")
 
-        
+# get the center of the poincloud
+def get_center(pc):
+    vertices = np.asarray(pc.points)
+    center = np.mean(vertices, axis=0)
+    return center
+
+# unit sphere normalization
+def unit_sphere_normalization(pc):
+    vertices = np.asarray(pc.points)
+    distance = np.sqrt(((vertices * vertices).sum(axis = -1)))
+    max_distance = np.max(distance)
+    vertices /= max_distance
+    pc.points = o3d.utility.Vector3dVector(vertices)
+    return pc
+
+# translate for pc
+def translate(pc, translation_vec):
+    vertices = np.asarray(pc.points)
+    vertices += translation_vec
+    pc.points = o3d.utility.Vector3dVector(vertices)
+    return pc
+
+# translate for mesh
+def translate_mesh(mesh, translation_vec):
+    vertices = np.asarray(mesh.vertices)
+    vertices += translation_vec
+    mesh.vertices = o3d.utility.Vector3dVector(vertices)
+    return mesh
