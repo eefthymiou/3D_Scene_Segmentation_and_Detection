@@ -1,6 +1,6 @@
 import numpy as np
 import open3d as o3d
-from scipy.spatial import ConvexHull
+
 
 def ransac_plane_fit(points, n_iterations, threshold_distance):
     best_plane = None
@@ -175,39 +175,6 @@ def neighbors_inlier(inlier_points, outlier_points, inlier_colors, outlier_color
     return total_neighbor_inliers_indicies, outlier_points, outlier_colors
     
 
-def chull_3D_pc(vertices):
-    # compute the convex hull
-    hull = ConvexHull(vertices)
-    
-    # get the faces of the convex hull
-    hull_faces = hull.simplices
 
-    hull_mesh = o3d.geometry.TriangleMesh()
-    hull_mesh.vertices = o3d.utility.Vector3dVector(vertices)
-    hull_mesh.triangles = o3d.utility.Vector3iVector(hull_faces)
-
-    return hull_mesh
-
-def chull_2D_pc(vertices):
-    # get the 3 row of the vertices
-    z = vertices[:,2]
-    # remove z value 
-    vertices = np.delete(vertices, 2, 1)
-    # calculate the convex hull
-    hull = ConvexHull(vertices)
-    # add z value to the vertices
-    vertices = np.insert(vertices, 2, z, axis=1)
-
-    hull_edges = hull.simplices
-    # for each edge get the last point and add in twice
-    hull_faces= []
-    for edge in hull_edges:
-        hull_faces.append([edge[0], edge[1], edge[1]])
-
-    hull_mesh = o3d.geometry.TriangleMesh()
-    hull_mesh.vertices = o3d.utility.Vector3dVector(vertices)
-    hull_mesh.triangles = o3d.utility.Vector3iVector(hull_faces)
-
-    return hull_mesh
 
     

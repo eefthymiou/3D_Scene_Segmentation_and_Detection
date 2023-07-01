@@ -42,7 +42,7 @@ class AppWindow:
         #set up camera
         bounds = self._scene.scene.bounding_box
         center = bounds.get_center()
-        self._scene.look_at(center, center - [0, 0, 12], [0, 1, 0])
+        self._scene.look_at(center, center + [0, 0, 1000], [0, 1, 0])
     
         self.geometries = {}
         self.wireframe_on = False
@@ -98,17 +98,26 @@ class AppWindow:
         index = str(index)
 
         # import point cloud
-        vertices, colors = self.load_pcd('clusters/gt_clusters/cluster_'+index+'/remaining_points.npy', 'clusters/gt_clusters/cluster_'+index+'/remaining_colors.npy')
+        vertices, colors = self.load_pcd('clusters/gt_clusters/cluster_'+index+'/vertices.npy', 'clusters/gt_clusters/cluster_'+index+'/colors.npy')
         # add point cloud to scene
         self.add_pcd(vertices, colors)
 
-        # import convex hull .OBJ files
-        convex_hull = o3d.io.read_triangle_model('clusters/gt_clusters/cluster_'+index+'/convex_hull.obj').meshes[0].mesh
+        # calculate convex hull
+        convex_hull = U.chull(vertices)
+        
+        # print type of convext hull (mesh or point cloud)
+        print(type(convex_hull))
 
         # compute the center of the convex hull
         convex_hull_center = np.mean(vertices,axis=0)
-        # translate the convex hull to the center of the point cloud
-        convex_hull = U.translate_mesh(convex_hull, -convex_hull_center)
+        
+        if type(convex_hull) == o3d.cpu.pybind.geometry.TriangleMesh:
+            # translate the convex hull to the center of the point cloud
+            convex_hull = U.translate_mesh(convex_hull, -convex_hull_center)
+        if type(convex_hull) == o3d.cpu.pybind.geometry.LineSet:
+            print("LineSet")
+            # translate the convex hull to the center of the point cloud
+            convex_hull = U.translate_LineSet(convex_hull, -convex_hull_center)
         
         # add convex hull to scene
         # self._scene.scene.add_geometry("convex_hull", convex_hull, material)
@@ -116,8 +125,7 @@ class AppWindow:
 
         # check that vertices and convex hull vertices are the same
         print("vertices shape:", vertices.shape)
-        print("convex hull vertices shape:", np.asarray(convex_hull.vertices).shape)
-
+    
         return gui.Widget.EventCallbackResult.HANDLED
             
         
@@ -213,7 +221,7 @@ class AppWindow:
             self.gt_clusters = True
             self.cluster(self.gt_clusters_index)
 
-        # up key (265) - chage cluster 
+        # up key (265) - change cluster 
         if event.key == 265:
             if self.gt_clusters:
                 if self.gt_clusters_index == 10:
