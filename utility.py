@@ -5,6 +5,7 @@ from IPython.display import display, clear_output
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from scipy.spatial import ConvexHull
+import os
 
 #constants
 red = np.array([1,0,0])
@@ -254,3 +255,11 @@ def o3d_pointcloud(verts, center=False, color=black):
 
         pcloud.colors = o3d.utility.Vector3dVector(color)
         return pcloud
+
+def count_directories(path):
+    count = 0
+    for item in os.listdir(path):
+        item_path = os.path.join(path, item)
+        if os.path.isdir(item_path):
+            count += 1
+    return count

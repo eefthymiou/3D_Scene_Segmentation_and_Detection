@@ -249,7 +249,7 @@ class AppWindow:
                 else: self.gt_clusters_index += 1
                 self.cluster(self.gt_clusters_index)
             if self.my_clusters:
-                if self.my_clusters_index == 10:
+                if self.my_clusters_index == 12:
                     self.my_clusters_index = 0
                 else: self.my_clusters_index += 1
                 self.cluster(self.my_clusters_index)
@@ -261,9 +261,9 @@ class AppWindow:
                     self.gt_clusters_index = 10
                 else: self.gt_clusters_index -= 1
                 self.cluster(self.gt_clusters_index)
-            if self.my_clusters:
+            elif self.my_clusters:
                 if self.my_clusters_index == 0:
-                    self.my_clusters_index = 10
+                    self.my_clusters_index = 12
                 else: self.my_clusters_index -= 1
                 self.cluster(self.my_clusters_index)
 
