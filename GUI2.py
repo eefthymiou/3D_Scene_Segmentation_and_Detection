@@ -42,7 +42,7 @@ class AppWindow:
         #set up camera
         bounds = self._scene.scene.bounding_box
         center = bounds.get_center()
-        self._scene.look_at(center, center + [0, 0, 1000], [0, 1, 0])
+        self._scene.look_at(center, center + [0, 0, 1], [0, 1, 0])
     
         self.geometries = {}
         self.wireframe_on = False
@@ -72,6 +72,7 @@ class AppWindow:
             self.remove_geometry(name)
     
     def prepare_pcd(self, pcd):
+        pcd = U.unit_sphere_normalization(pcd)
         pcd_center = U.get_center(pcd)
         pcd = U.translate(pcd, -pcd_center)        
         return pcd
@@ -106,6 +107,8 @@ class AppWindow:
             vertices, colors = self.load_pcd('clusters/my_clusters/cluster_'+index+'/vertices.npy', 'clusters/my_clusters/cluster_'+index+'/colors.npy')
         # add point cloud to scene
         self.add_pcd(vertices, colors)
+
+        vertices = U.unit_sphere_normalization_vertices(vertices)
 
         # calculate convex hull
         convex_hull = U.chull(vertices)
@@ -241,6 +244,7 @@ class AppWindow:
             self.my_clusters = True
             self.cluster(self.my_clusters_index)
 
+
         # up key (265) - change cluster 
         if event.key == 265:
             if self.gt_clusters:
@@ -266,6 +270,7 @@ class AppWindow:
                     self.my_clusters_index = 12
                 else: self.my_clusters_index -= 1
                 self.cluster(self.my_clusters_index)
+        
 
         # ENTER - show convex hull
         if event.key == 10:
