@@ -51,6 +51,8 @@ class AppWindow:
         self.meshSplited = False
         self.gt_clusters = False
         self.gt_clusters_index = 0
+        self.my_clusters = False
+        self.my_clusters_index = 0
         self.convex_hull = False
         self.last_click = time.time()
 
@@ -98,7 +100,10 @@ class AppWindow:
         index = str(index)
 
         # import point cloud
-        vertices, colors = self.load_pcd('clusters/gt_clusters/cluster_'+index+'/vertices.npy', 'clusters/gt_clusters/cluster_'+index+'/colors.npy')
+        if (self.gt_clusters):
+            vertices, colors = self.load_pcd('clusters/gt_clusters/cluster_'+index+'/vertices.npy', 'clusters/gt_clusters/cluster_'+index+'/colors.npy')
+        elif (self.my_clusters):
+            vertices, colors = self.load_pcd('clusters/my_clusters/cluster_'+index+'/vertices.npy', 'clusters/my_clusters/cluster_'+index+'/colors.npy')
         # add point cloud to scene
         self.add_pcd(vertices, colors)
 
@@ -140,6 +145,7 @@ class AppWindow:
             self.remove_all_geometries()
             # exit from clusters
             self.gt_clusters = False
+            self.my_clusters = False
 
             # import point cloud
             vertices, colors = self.load_pcd('pointcloud/vertices.npy', 'pointcloud/colors.npy')
@@ -152,6 +158,9 @@ class AppWindow:
         if event.key == ord('2'):
             # remove all geometries
             self.remove_all_geometries()
+            # exit from clusters
+            self.gt_clusters = False
+            self.my_clusters = False
 
             # import point cloud
             vertices, colors = self.load_pcd('pointcloud/gt_vertices.npy', 'pointcloud/gt_colors.npy')
@@ -166,6 +175,7 @@ class AppWindow:
             self.remove_all_geometries()
             # exit from clusters
             self.gt_clusters = False
+            self.my_clusters = False
 
             # import point cloud
             vertices, colors = self.load_pcd('pointcloud/gt_planes.npy', 'pointcloud/gt_planes_colors.npy')
@@ -180,6 +190,7 @@ class AppWindow:
             self.remove_all_geometries()
             # exit from clusters
             self.gt_clusters = False
+            self.my_clusters = False
 
             # import point cloud
             vertices, colors = self.load_pcd('pointcloud/gt_objects.npy', 'pointcloud/gt_objects_colors.npy')
@@ -194,6 +205,7 @@ class AppWindow:
             self.remove_all_geometries()
             # exit from clusters
             self.gt_clusters = False
+            self.my_clusters = False
 
             # import point cloud
             vertices, colors = self.load_pcd('pointcloud/my_planes.npy', 'pointcloud/my_planes_colors.npy')
@@ -208,6 +220,7 @@ class AppWindow:
             self.remove_all_geometries()
             # exit from clusters
             self.gt_clusters = False
+            self.my_clusters = False
 
             # import point cloud
             vertices, colors = self.load_pcd('pointcloud/my_objects.npy', 'pointcloud/my_objects_colors.npy')
@@ -218,8 +231,15 @@ class AppWindow:
         
         # 7 - load gt clusters
         if event.key == ord('7'):
+            self.my_clusters = False
             self.gt_clusters = True
             self.cluster(self.gt_clusters_index)
+
+        # 8 - load my clusters
+        if event.key == ord('8'):
+            self.gt_clusters = False
+            self.my_clusters = True
+            self.cluster(self.my_clusters_index)
 
         # up key (265) - change cluster 
         if event.key == 265:
@@ -228,6 +248,11 @@ class AppWindow:
                     self.gt_clusters_index = 0
                 else: self.gt_clusters_index += 1
                 self.cluster(self.gt_clusters_index)
+            if self.my_clusters:
+                if self.my_clusters_index == 10:
+                    self.my_clusters_index = 0
+                else: self.my_clusters_index += 1
+                self.cluster(self.my_clusters_index)
 
         # down key - chage cluster
         if event.key == 266:
@@ -236,10 +261,26 @@ class AppWindow:
                     self.gt_clusters_index = 10
                 else: self.gt_clusters_index -= 1
                 self.cluster(self.gt_clusters_index)
+            if self.my_clusters:
+                if self.my_clusters_index == 0:
+                    self.my_clusters_index = 10
+                else: self.my_clusters_index -= 1
+                self.cluster(self.my_clusters_index)
 
         # ENTER - show convex hull
         if event.key == 10:
             if self.gt_clusters:
+                if self.convex_hull == False:
+                    # find convex_hull from geometries
+                    convex_hull = self.geometries["convex_hull"]
+                    # add convex hull to scene
+                    self._scene.scene.add_geometry("convex_hull", convex_hull, material)
+                    self.convex_hull = True
+                else:
+                    # remove convex hull from scene
+                    self._scene.scene.remove_geometry("convex_hull")
+                    self.convex_hull = False
+            elif (self.my_clusters):
                 if self.convex_hull == False:
                     # find convex_hull from geometries
                     convex_hull = self.geometries["convex_hull"]

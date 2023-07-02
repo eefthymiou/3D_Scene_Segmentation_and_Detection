@@ -9,7 +9,7 @@ def main():
     # 5 -> inliers (my planes)
     # 6 -> outliers (my objects)
 
-    select_pointcloud = 6
+    select_pointcloud = 7
 
     if select_pointcloud == 0:
         # pointcloud paths
@@ -48,6 +48,10 @@ def main():
     elif select_pointcloud == 6:
         vertices_path = 'pointcloud/gt_objects_clustered.npy'
         colors_path = 'pointcloud/gt_objects_colors_clustered.npy'
+    
+    elif select_pointcloud == 7:
+        vertices_path = 'pointcloud/my_objects_clustered.npy'
+        colors_path = 'pointcloud/my_objects_colors_clustered.npy'
 
 
     # load vertices and colors
