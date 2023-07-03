@@ -7,6 +7,7 @@ from matplotlib.patches import Rectangle
 from scipy.spatial import ConvexHull
 import os
 
+
 #constants
 red = np.array([1,0,0])
 green = np.array([0,1,0])
@@ -94,7 +95,8 @@ def unit_sphere_normalization(pc):
     vertices = np.asarray(pc.points)
     distance = np.sqrt(((vertices * vertices).sum(axis = -1)))
     max_distance = np.max(distance)
-    vertices /= (max_distance)
+    vertices /= max_distance
+    vertices *= 1000
     pc.points = o3d.utility.Vector3dVector(vertices)
     return pc
 
@@ -102,6 +104,7 @@ def unit_sphere_normalization_vertices(vertices):
     distance = np.sqrt(((vertices * vertices).sum(axis = -1)))
     max_distance = np.max(distance)
     vertices /= (max_distance)
+    vertices *= 1000
     return vertices
 
 # translate for pc
@@ -280,6 +283,32 @@ def downsample(point_cloud, a):
     indices = np.random.choice(indices, M, replace = False)
 
     points = points[indices,:]
+    colors = np.asarray(point_cloud.colors)[indices,:]
 
     point_cloud.points = o3d.utility.Vector3dVector(points)
+    point_cloud.colors = o3d.utility.Vector3dVector(colors)
     return point_cloud, M
+
+
+def plane_from_points(x1, x2, x3):
+    AB = np.array(x2) - np.array(x1)
+    AC = np.array(x3) - np.array(x1)
+    N = np.cross(AB, AC)
+    d = -np.dot(N, np.array(x1))
+    return N, d
+
+def closest_point_on_line(point, line_start, line_end):
+    # Calculate the closest point on a line to a given point
+    line_vec = np.array(line_end) - np.array(line_start)
+    point_vec = np.array(point) - np.array(line_start)
+    line_length = np.linalg.norm(line_vec)
+    line_unit_vec = line_vec / line_length
+    t = np.dot(line_unit_vec, point_vec)
+    t = max(0, min(t, line_length))
+    closest_point = np.array(line_start) + t * line_unit_vec
+    return closest_point
+
+def distance(point1, point2):
+    # Calculate the Euclidean distance between two points in 3D space
+    return np.linalg.norm(np.array(point1) - np.array(point2))
+

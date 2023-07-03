@@ -11,7 +11,7 @@ import time
 import utility as U
 import threading
 import random
-import kd_tree
+
 
 
 material = rendering.MaterialRecord()
@@ -50,13 +50,10 @@ class AppWindow:
         #set up camera
         bounds = self._scene.scene.bounding_box
         center = bounds.get_center()
-        self._scene.look_at(center, center + [0, 0, 1], [0, 1, 0])
+        self._scene.look_at(center, center + [0, 0, 100], [0, 1, 0])
     
         self.geometries = {}
-        self.wireframe_on = False
-        self.aabb_on = False
-        self.pr_comp_on = False
-        self.meshSplited = False
+    
         self.gt_clusters = False
         self.gt_clusters_index = 0
         self.num_of_gt_clusters = U.count_directories('clusters/gt_clusters')
@@ -68,13 +65,14 @@ class AppWindow:
         self.clusters = False
         self.sphere_added = False
         self.sphere_animation_started = False
-        self.dt = 0
-        self.sphere_center = np.zeros(3)
-        self.sphere_radius = 0.005
+        self.sphere_center = [0,10,50]
+        self.sphere_radius = 30
         self.sphere_velocity = np.zeros(3)
-        self.center = np.zeros(3)
-        self.prev_time = 0
-        self.kd_trees = []
+
+        self.collision = False
+        self.num_of_c_hulls = 0
+        self.collision_triangle = None
+        self.collision_c_hull = None
        
     def _on_layout(self, layout_context):
         r = self.window.content_rect
@@ -159,14 +157,13 @@ class AppWindow:
         # self remove all geometries
         self.remove_all_geometries()
 
-        # import clusters
-        clusters_vertices = []
-        clusters_colors = []
-        
+        c_hulls = []
         for i in range(self.num_of_gt_clusters):
             vertices, colors = self.load_pcd('clusters/gt_clusters/cluster_'+str(i)+'/vertices.npy', 'clusters/gt_clusters/cluster_'+str(i)+'/colors.npy')
-            clusters_vertices.append(vertices)
-            clusters_colors.append(colors)
+            # find the convex hull of the cluster
+            convex_hull = U.chull(vertices)
+            c_hulls = np.append(c_hulls, convex_hull)
+
             if i==0:
                 total_vertices = vertices
                 total_colors = colors
@@ -174,49 +171,47 @@ class AppWindow:
                 total_vertices = np.concatenate((total_vertices, vertices), axis=0)
                 total_colors = np.concatenate((total_colors, colors), axis=0)
 
-        # max distance
+
+        # normalize the vertices
+        total_vertices = np.asarray(total_vertices)
         distance = np.sqrt(((total_vertices * total_vertices).sum(axis = -1)))
         max_distance = np.max(distance)
-        # 119939.65810438758
-        self.center = np.mean(total_vertices/max_distance,axis=0)
+        total_vertices /= max_distance
+        total_vertices *= 1000
+        center = np.mean(total_vertices,axis=0)
+        total_vertices -= center
 
-        for i in range(self.num_of_gt_clusters):
-            # normalize vertices
-            clusters_vertices[i] /= (max_distance)
+        i=0
+        for c_hull in c_hulls:
+            try: 
+                c_hull_points = np.asarray(c_hull.vertices) 
+            except:
+                continue
+            c_hull_points /= max_distance
+            c_hull_points *= 1000
+            c_hull_points -= center
+            # update c_hull
+            c_hull.vertices = o3d.utility.Vector3dVector(c_hull_points)
+            # self._scene.scene.add_geometry("convex_hull_"+str(i), c_hull, material)
+            self.add_geometry(c_hull, "convex_hull_"+str(i))
+            i+=1
+        self.num_of_c_hulls = i
 
-            # create point cloud
-            pcd = o3d.geometry.PointCloud()
-            pcd.points = o3d.utility.Vector3dVector(clusters_vertices[i])
-            pcd.colors = o3d.utility.Vector3dVector(clusters_colors[i])
-            pcd = U.translate(pcd, -self.center)
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(total_vertices)
+        pcd.colors = o3d.utility.Vector3dVector(total_colors)
 
-            # add point cloud to scene
-            self._scene.scene.add_geometry("pointcloud "+str(i), pcd, material)
-            self.add_geometry(pcd, "pointcloud "+str(i))
-
-            # convex hull
-            convex_hull = U.chull(clusters_vertices[i])
-            if type(convex_hull) == o3d.cpu.pybind.geometry.TriangleMesh:
-                # translate the convex hull to the center of the point cloud
-                convex_hull = U.translate_mesh(convex_hull, -self.center)
-            if type(convex_hull) == o3d.cpu.pybind.geometry.LineSet:
-                # translate the convex hull to the center of the point cloud
-                convex_hull = U.translate_LineSet(convex_hull, -self.center)
-            
-            # add convex hull to scene
-            # self._scene.scene.add_geometry("convex_hull "+str(i), convex_hull, material)
-            # self.add_geometry(convex_hull, "convex_hull "+str(i))
-
-            # create kd_trees for cluster
-            kdtree = kd_tree.kd_tree(clusters_vertices[i])
-            self.kd_trees.append(kdtree)
+        # add pcd to scene
+        self._scene.scene.add_geometry("pointcloud", pcd, material)
+        self.add_geometry(pcd, "pointcloud")
 
         return gui.Widget.EventCallbackResult.HANDLED
 
     def add_sphere_to_scene(self):
-        sphere = o3d.geometry.TriangleMesh.create_sphere(self.sphere_radius)
+        sphere = o3d.geometry.LineSet.create_from_triangle_mesh(o3d.geometry.TriangleMesh.create_sphere(np.sqrt(self.sphere_radius)))
         # trnaslate sphere
-        sphere = U.translate_mesh(sphere, [0,0.01,0.1])
+        sphere.translate(self.sphere_center)
+
         # add sphere to scene
         self._scene.scene.add_geometry("sphere", sphere, mat)
         self.add_geometry(sphere, "sphere")
@@ -224,14 +219,17 @@ class AppWindow:
 
         # set sphere velocity
         # find the center of the sphere 
-        sphere_vertices = np.asarray(sphere.vertices)
-        sphere_center = np.mean(sphere_vertices,axis=0)
-        self.sphere_velocity = self.center - sphere_center
+        self.sphere_velocity = np.zeros(3) - self.sphere_center
         # normalize velocity
         self.sphere_velocity /= np.linalg.norm(self.sphere_velocity)
-        self.sphere_velocity *= 0.1
-        # add noise to velocity 
-        self.sphere_velocity += np.random.normal(0, 0.01, 3)
+        
+        # noise in velocity
+        self.sphere_velocity[0] += random.uniform(-1.2, 1.2)
+        
+
+        # multiply by 5
+        self.sphere_velocity *= 5
+        
 
         return gui.Widget.EventCallbackResult.HANDLED
 
@@ -243,41 +241,83 @@ class AppWindow:
         self._scene.scene.remove_geometry("sphere")
 
         # translate sphere
-        translation_vec = self.sphere_velocity * 10**(-2)
-        sphere = U.translate_mesh(sphere, translation_vec)
-
-        # find the center of the sphere
-        sphere_vertices = np.asarray(sphere.vertices)
-        self.sphere_center = np.mean(sphere_vertices,axis=0)
+        translation_vec = self.sphere_velocity 
+        sphere.translate(translation_vec)
+        # update the center of the sphere
+        self.sphere_center += translation_vec
 
         # check for collision
         self.collisions()
-       
+
+        if self.collision == True:
+            # find the convex hull from geometries
+            convex_hull = self.geometries["convex_hull_" + str(self.collision_c_hull)]
+            # add convex_hull to the scene with red color
+            c_mat = rendering.MaterialRecord()
+            c_mat.base_color = np.array([1, 0, 0, 1.0])
+            self._scene.scene.add_geometry("convex_hull", convex_hull, c_mat)
+
+
+
         # add sphere to scene
         self._scene.scene.add_geometry("sphere", sphere, mat)
         
-    def check_collision(self, i):
-        # get the kdtree
-        kdtree = self.kd_trees[i]
-        # get the cluster 
-        cluster = self.geometries["pointcloud "+str(i)]
-        points = np.asarray(cluster.points)
-        # find the num of points
-        indices = kdtree.find_points_in_sphere(points, self.sphere_center, self.sphere_radius)
-
-        if (len(indices)>0):
-            print("collision")
-        else: 
-            print("no collision")
-
 
     def collisions(self):
-        # if collisions oqur then change velocity of the sphere (or remove cluster)
-        # else return
 
-        # find clusters
-        for i in range(self.num_of_gt_clusters):
-            self.check_collision(i)
+        for i in range(self.num_of_c_hulls):
+            # find the convex hull from geometries
+            convex_hull = self.geometries["convex_hull_" + str(i)]
+
+            possible_triangles_indices = []
+            index = 0
+            for triangle in convex_hull.triangles:
+                # calculate the plane of the triangle
+                N, d = U.plane_from_points(
+                    np.asarray(convex_hull.vertices)[triangle[0]],
+                    np.asarray(convex_hull.vertices)[triangle[1]],
+                    np.asarray(convex_hull.vertices)[triangle[2]]
+                )
+                # Find the closest point on the plane to the center of the sphere
+                D = (np.dot(N, self.sphere_center) + d) / np.linalg.norm(N)
+                if D < np.sqrt(self.sphere_radius):
+                    possible_triangles_indices.append(index)
+                index += 1  
+
+            # print("possible triangle:",len(possible_triangles))
+
+            for index in possible_triangles_indices:
+                triangle = convex_hull.triangles[index]
+
+                # check if any triangle vertices are inside the sphere
+                vs = [
+                    np.asarray(convex_hull.vertices)[triangle[0]],
+                    np.asarray(convex_hull.vertices)[triangle[1]],
+                    np.asarray(convex_hull.vertices)[triangle[2]]
+                ]
+                for v in vs:
+                    distance = U.distance(v, self.sphere_center)
+                    if distance < np.sqrt(self.sphere_radius):
+                        self.collision = True
+                        self.collision_triangle = index
+                        self.collision_c_hull = i
+                        print("Collision detected by vertex")
+                        return
+
+                # check if any triangle edges intersect the sphere
+                for k in range(3):
+                    j = (k + 1) % 3
+                    closest_point = U.closest_point_on_line(
+                        self.sphere_center,
+                        convex_hull.vertices[triangle[k]],
+                        convex_hull.vertices[triangle[j]]
+                    )
+                    if U.distance(closest_point, self.sphere_center) < np.sqrt(self.sphere_radius):
+                        self.collision = True
+                        self.collision_triangle = index
+                        self.collision_c_hull = i
+                        print("Collision detected by edge")
+                        return
 
     def sphere_animation(self):
         if self.sphere_animation_started: return gui.Widget.EventCallbackResult.HANDLED 
@@ -286,11 +326,9 @@ class AppWindow:
 
             # update the scene
             gui.Application.instance.post_to_main_thread(self.window, self.update_sphere)
-            time.sleep(0.5)
-            break
+            time.sleep(1)
 
-            if self.sphere_center[2] < -0.5:
-                break
+            if self.collision == True: break
             
             
         return gui.Widget.EventCallbackResult.HANDLED
@@ -427,27 +465,28 @@ class AppWindow:
         # up key (265) - change cluster 
         if event.key == 265:
             if self.gt_clusters:
+                self.gt_clusters_index += 1
                 if self.gt_clusters_index == self.num_of_gt_clusters:
                     self.gt_clusters_index = 0
-                else: self.gt_clusters_index += 1
                 self.cluster(self.gt_clusters_index)
             if self.my_clusters:
+                self.my_clusters_index += 1
                 if self.my_clusters_index == self.num_of_my_clusters:
                     self.my_clusters_index = 0
-                else: self.my_clusters_index += 1
                 self.cluster(self.my_clusters_index)
 
         # down key - change cluster
         if event.key == 266:
             if self.gt_clusters:
-                if self.gt_clusters_index == 0:
-                    self.gt_clusters_index = self.num_of_gt_clusters
-                else: self.gt_clusters_index -= 1
+                self.gt_clusters_index -= 1
+                if self.gt_clusters_index == -1:
+                    self.gt_clusters_index = self.num_of_gt_clusters-1 
                 self.cluster(self.gt_clusters_index)
+
             elif self.my_clusters:
-                if self.my_clusters_index == 0:
-                    self.my_clusters_index = self.num_of_my_clusters
-                else: self.my_clusters_index -= 1
+                self.my_clusters_index -= 1
+                if self.my_clusters_index == -1:
+                    self.my_clusters_index = self.num_of_my_clusters-1
                 self.cluster(self.my_clusters_index)
         
 
