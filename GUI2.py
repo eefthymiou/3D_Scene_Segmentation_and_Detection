@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 import open3d as o3d
 import open3d.visualization.gui as gui
 import open3d.visualization.rendering as rendering
@@ -9,14 +10,20 @@ import numpy as np
 import time
 import utility as U
 import threading
-
+import random
 
 
 
 material = rendering.MaterialRecord()
-material.shader = "defaultUnlit"
-# Set material properties
-material.base_color = np.array([0.8, 0.8, 0.8, 1.0])  # Dark diffuse color
+material.base_color = np.array([0.8, 0.8, 0.8, 1.0])  
+
+mat = rendering.MaterialRecord()
+mat.base_color = [
+    random.random(),
+    random.random(),
+    random.random(), 1.0
+]
+
 
 class AppWindow:
 
@@ -30,6 +37,7 @@ class AppWindow:
         self.window = gui.Application.instance.create_window(window_name, width, height)
         self._scene = gui.SceneWidget()
         self._scene.scene = rendering.Open3DScene(self.window.renderer)
+        self._scene.scene.scene.enable_sun_light(False)
 
         # basic layout
         self.window.set_on_layout(self._on_layout)
@@ -51,11 +59,21 @@ class AppWindow:
         self.meshSplited = False
         self.gt_clusters = False
         self.gt_clusters_index = 0
+        self.num_of_gt_clusters = U.count_directories('clusters/gt_clusters')
         self.my_clusters = False
         self.my_clusters_index = 0
+        self.num_of_my_clusters = U.count_directories('clusters/my_clusters')
         self.convex_hull = False
         self.last_click = time.time()
-
+        self.clusters = False
+        self.sphere_added = False
+        self.sphere_animation_started = False
+        self.dt = 0
+        self.sphere_center = np.zeros(3)
+        self.sphere_velocity = np.zeros(3)
+        self.center = np.zeros(3)
+        self.prev_time = 0
+       
     def _on_layout(self, layout_context):
         
         r = self.window.content_rect
@@ -135,8 +153,99 @@ class AppWindow:
         print("vertices shape:", vertices.shape)
     
         return gui.Widget.EventCallbackResult.HANDLED
-            
+
+    def gt_clusters_visualization(self):
+        # self remove all geometries
+        self.remove_all_geometries()
+
+        # import clusters
+        clusters_vertices = []
+        clusters_colors = []
         
+        for i in range(self.num_of_gt_clusters):
+            vertices, colors = self.load_pcd('clusters/gt_clusters/cluster_'+str(i)+'/vertices.npy', 'clusters/gt_clusters/cluster_'+str(i)+'/colors.npy')
+            clusters_vertices.append(vertices)
+            clusters_colors.append(colors)
+            if i==0:
+                total_vertices = vertices
+                total_colors = colors
+            else:
+                total_vertices = np.concatenate((total_vertices, vertices), axis=0)
+                total_colors = np.concatenate((total_colors, colors), axis=0)
+
+        total_vertices = U.unit_sphere_normalization_vertices(total_vertices)
+        self.center = np.mean(total_vertices,axis=0)
+    
+        # create point cloud
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(total_vertices)
+        pcd.colors = o3d.utility.Vector3dVector(total_colors)
+        pcd = U.translate(pcd, -self.center)
+
+        # add point cloud to scene
+        self._scene.scene.add_geometry("pointcloud", pcd, material)
+        self.add_geometry(pcd, "pointcloud")
+
+        return gui.Widget.EventCallbackResult.HANDLED
+
+    def add_sphere_to_scene(self):
+        sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.005)
+        # trnaslate sphere
+        sphere = U.translate_mesh(sphere, [0,0.01,0.1])
+        # add sphere to scene
+        self._scene.scene.add_geometry("sphere", sphere, mat)
+        self.add_geometry(sphere, "sphere")
+        self.sphere_added = True
+
+        # set sphere velocity
+        # find the center of the sphere 
+        sphere_vertices = np.asarray(sphere.vertices)
+        sphere_center = np.mean(sphere_vertices,axis=0)
+        self.sphere_velocity = self.center - sphere_center
+        # normalize velocity
+        self.sphere_velocity /= np.linalg.norm(self.sphere_velocity)
+        self.sphere_velocity *= 0.1
+        # add noise to velocity 
+        self.sphere_velocity += np.random.normal(0, 0.01, 3)
+
+        return gui.Widget.EventCallbackResult.HANDLED
+
+    def update_sphere(self):
+        # find sphere from geometries
+        sphere = self.geometries["sphere"]
+
+        # remove sphere from scene
+        self._scene.scene.remove_geometry("sphere")
+
+        # translate sphere
+        translation_vec = self.sphere_velocity * 10**(-2)
+        sphere = U.translate_mesh(sphere, translation_vec)
+
+        # find the center of the sphere
+        sphere_vertices = np.asarray(sphere.vertices)
+        self.sphere_center = np.mean(sphere_vertices,axis=0)
+       
+        # add sphere to scene
+        self._scene.scene.add_geometry("sphere", sphere, mat)
+        
+
+    def sphere_animation(self):
+
+        while True:
+            # check for collision
+
+            # update the velocity
+
+            # update the scene
+            gui.Application.instance.post_to_main_thread(self.window, self.update_sphere)
+            time.sleep(0.05)
+
+            if self.sphere_center[2] < -0.5:
+                break
+            
+            
+        return gui.Widget.EventCallbackResult.HANDLED
+
     def _on_key_pressed(self, event):
         # if not have passed 0.5 sec since last click return
         if time.time() - self.last_click < 0.5:
@@ -244,30 +353,51 @@ class AppWindow:
             self.my_clusters = True
             self.cluster(self.my_clusters_index)
 
+        # G - all ground trouth clusters
+        if event.key == 103:
+            self.gt_clusters = False
+            self.my_clusters = False
+            self.gt_clusters_visualization()
+            self.clusters = True
 
+        # S - sphere
+        if event.key == 115:
+            self.gt_clusters = False
+            self.my_clusters = False
+            if self.clusters: self.add_sphere_to_scene()
+
+        # a - sphere animation 
+        if event.key == 97:
+            self.gt_clusters = False
+            self.my_clusters = False
+            if self.sphere_added: 
+                threading.Thread(target=self.sphere_animation).start()
+
+
+        
         # up key (265) - change cluster 
         if event.key == 265:
             if self.gt_clusters:
-                if self.gt_clusters_index == 10:
+                if self.gt_clusters_index == self.num_of_gt_clusters:
                     self.gt_clusters_index = 0
                 else: self.gt_clusters_index += 1
                 self.cluster(self.gt_clusters_index)
             if self.my_clusters:
-                if self.my_clusters_index == 12:
+                if self.my_clusters_index == self.num_of_my_clusters:
                     self.my_clusters_index = 0
                 else: self.my_clusters_index += 1
                 self.cluster(self.my_clusters_index)
 
-        # down key - chage cluster
+        # down key - change cluster
         if event.key == 266:
             if self.gt_clusters:
                 if self.gt_clusters_index == 0:
-                    self.gt_clusters_index = 10
+                    self.gt_clusters_index = self.num_of_gt_clusters
                 else: self.gt_clusters_index -= 1
                 self.cluster(self.gt_clusters_index)
             elif self.my_clusters:
                 if self.my_clusters_index == 0:
-                    self.my_clusters_index = 12
+                    self.my_clusters_index = self.num_of_my_clusters
                 else: self.my_clusters_index -= 1
                 self.cluster(self.my_clusters_index)
         
@@ -297,10 +427,11 @@ class AppWindow:
                     self._scene.scene.remove_geometry("convex_hull")
                     self.convex_hull = False
     
-        print(event.key)
+        print(event.key)      
+        
         self.last_click = time.time()
         return gui.Widget.EventCallbackResult.HANDLED
-            
+        
 def main():
     gui.Application.instance.initialize()
 
@@ -308,6 +439,7 @@ def main():
     app = AppWindow(1280, 720)
 
     gui.Application.instance.run()
+    
 
 if __name__ == "__main__":
     main()
