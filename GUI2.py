@@ -11,7 +11,7 @@ import time
 import utility as U
 import threading
 import random
-
+import kd_tree
 
 
 material = rendering.MaterialRecord()
@@ -70,12 +70,13 @@ class AppWindow:
         self.sphere_animation_started = False
         self.dt = 0
         self.sphere_center = np.zeros(3)
+        self.sphere_radius = 0.005
         self.sphere_velocity = np.zeros(3)
         self.center = np.zeros(3)
         self.prev_time = 0
+        self.kd_trees = []
        
     def _on_layout(self, layout_context):
-        
         r = self.window.content_rect
         self._scene.frame = r
 
@@ -173,23 +174,47 @@ class AppWindow:
                 total_vertices = np.concatenate((total_vertices, vertices), axis=0)
                 total_colors = np.concatenate((total_colors, colors), axis=0)
 
-        total_vertices = U.unit_sphere_normalization_vertices(total_vertices)
-        self.center = np.mean(total_vertices,axis=0)
-    
-        # create point cloud
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(total_vertices)
-        pcd.colors = o3d.utility.Vector3dVector(total_colors)
-        pcd = U.translate(pcd, -self.center)
+        # max distance
+        distance = np.sqrt(((total_vertices * total_vertices).sum(axis = -1)))
+        max_distance = np.max(distance)
+        # 119939.65810438758
+        self.center = np.mean(total_vertices/max_distance,axis=0)
 
-        # add point cloud to scene
-        self._scene.scene.add_geometry("pointcloud", pcd, material)
-        self.add_geometry(pcd, "pointcloud")
+        for i in range(self.num_of_gt_clusters):
+            # normalize vertices
+            clusters_vertices[i] /= (max_distance)
+
+            # create point cloud
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(clusters_vertices[i])
+            pcd.colors = o3d.utility.Vector3dVector(clusters_colors[i])
+            pcd = U.translate(pcd, -self.center)
+
+            # add point cloud to scene
+            self._scene.scene.add_geometry("pointcloud "+str(i), pcd, material)
+            self.add_geometry(pcd, "pointcloud "+str(i))
+
+            # convex hull
+            convex_hull = U.chull(clusters_vertices[i])
+            if type(convex_hull) == o3d.cpu.pybind.geometry.TriangleMesh:
+                # translate the convex hull to the center of the point cloud
+                convex_hull = U.translate_mesh(convex_hull, -self.center)
+            if type(convex_hull) == o3d.cpu.pybind.geometry.LineSet:
+                # translate the convex hull to the center of the point cloud
+                convex_hull = U.translate_LineSet(convex_hull, -self.center)
+            
+            # add convex hull to scene
+            # self._scene.scene.add_geometry("convex_hull "+str(i), convex_hull, material)
+            # self.add_geometry(convex_hull, "convex_hull "+str(i))
+
+            # create kd_trees for cluster
+            kdtree = kd_tree.kd_tree(clusters_vertices[i])
+            self.kd_trees.append(kdtree)
 
         return gui.Widget.EventCallbackResult.HANDLED
 
     def add_sphere_to_scene(self):
-        sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.005)
+        sphere = o3d.geometry.TriangleMesh.create_sphere(self.sphere_radius)
         # trnaslate sphere
         sphere = U.translate_mesh(sphere, [0,0.01,0.1])
         # add sphere to scene
@@ -224,21 +249,45 @@ class AppWindow:
         # find the center of the sphere
         sphere_vertices = np.asarray(sphere.vertices)
         self.sphere_center = np.mean(sphere_vertices,axis=0)
+
+        # check for collision
+        self.collisions()
        
         # add sphere to scene
         self._scene.scene.add_geometry("sphere", sphere, mat)
         
+    def check_collision(self, i):
+        # get the kdtree
+        kdtree = self.kd_trees[i]
+        # get the cluster 
+        cluster = self.geometries["pointcloud "+str(i)]
+        points = np.asarray(cluster.points)
+        # find the num of points
+        indices = kdtree.find_points_in_sphere(points, self.sphere_center, self.sphere_radius)
+
+        if (len(indices)>0):
+            print("collision")
+        else: 
+            print("no collision")
+
+
+    def collisions(self):
+        # if collisions oqur then change velocity of the sphere (or remove cluster)
+        # else return
+
+        # find clusters
+        for i in range(self.num_of_gt_clusters):
+            self.check_collision(i)
 
     def sphere_animation(self):
-
+        if self.sphere_animation_started: return gui.Widget.EventCallbackResult.HANDLED 
         while True:
-            # check for collision
-
-            # update the velocity
+            self.sphere_animation_started = True
 
             # update the scene
             gui.Application.instance.post_to_main_thread(self.window, self.update_sphere)
-            time.sleep(0.05)
+            time.sleep(0.5)
+            break
 
             if self.sphere_center[2] < -0.5:
                 break

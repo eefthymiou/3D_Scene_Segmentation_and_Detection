@@ -94,9 +94,15 @@ def unit_sphere_normalization(pc):
     vertices = np.asarray(pc.points)
     distance = np.sqrt(((vertices * vertices).sum(axis = -1)))
     max_distance = np.max(distance)
-    vertices /= max_distance
+    vertices /= (max_distance)
     pc.points = o3d.utility.Vector3dVector(vertices)
     return pc
+
+def unit_sphere_normalization_vertices(vertices):
+    distance = np.sqrt(((vertices * vertices).sum(axis = -1)))
+    max_distance = np.max(distance)
+    vertices /= (max_distance)
+    return vertices
 
 # translate for pc
 def translate(pc, translation_vec):
@@ -263,3 +269,17 @@ def count_directories(path):
         if os.path.isdir(item_path):
             count += 1
     return count
+
+def downsample(point_cloud, a):
+
+    points = np.asarray(point_cloud.points)
+    N = np.shape(points)[0]
+
+    indices = np.arange(N)
+    M = N // a
+    indices = np.random.choice(indices, M, replace = False)
+
+    points = points[indices,:]
+
+    point_cloud.points = o3d.utility.Vector3dVector(points)
+    return point_cloud, M
