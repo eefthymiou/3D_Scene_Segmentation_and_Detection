@@ -444,23 +444,8 @@ class AppWindow:
         if time.time() - self.last_click < 0.5:
             return gui.Widget.EventCallbackResult.HANDLED
 
-        # 1 - load my point cloud
+        # 1 - load ground truth point cloud
         if event.key == ord('1'):
-            # remove all geometries
-            self.remove_all_geometries()
-            # exit from clusters
-            self.gt_clusters = False
-            self.my_clusters = False
-
-            # import point cloud
-            vertices, colors = self.load_pcd('pointcloud/vertices.npy', 'pointcloud/colors.npy')
-            # add point cloud to scene
-            self.add_pcd(vertices, colors)
-
-            return gui.Widget.EventCallbackResult.HANDLED
-
-        # 2 - load ground truth point cloud
-        if event.key == ord('2'):
             # remove all geometries
             self.remove_all_geometries()
             # exit from clusters
@@ -474,8 +459,8 @@ class AppWindow:
 
             return gui.Widget.EventCallbackResult.HANDLED
         
-        # 3 - load ground truth planes
-        if event.key == ord('3'):
+        # 2 - load ground truth planes
+        if event.key == ord('2'):
             # remove all geometries
             self.remove_all_geometries()
             # exit from clusters
@@ -489,8 +474,8 @@ class AppWindow:
 
             return gui.Widget.EventCallbackResult.HANDLED
 
-        # 4 - load ground truth objects
-        if event.key == ord('4'):
+        # 3 - load ground truth objects
+        if event.key == ord('3'):
             # remove all geometries
             self.remove_all_geometries()
             # exit from clusters
@@ -499,6 +484,22 @@ class AppWindow:
 
             # import point cloud
             vertices, colors = self.load_pcd('pointcloud/gt_objects.npy', 'pointcloud/gt_objects_colors.npy')
+            # add point cloud to scene
+            self.add_pcd(vertices, colors)
+
+            return gui.Widget.EventCallbackResult.HANDLED
+        
+
+        # 4 - load my point cloud
+        if event.key == ord('4'):
+            # remove all geometries
+            self.remove_all_geometries()
+            # exit from clusters
+            self.gt_clusters = False
+            self.my_clusters = False
+
+            # import point cloud
+            vertices, colors = self.load_pcd('pointcloud/vertices.npy', 'pointcloud/colors.npy')
             # add point cloud to scene
             self.add_pcd(vertices, colors)
 
@@ -688,6 +689,24 @@ class AppWindow:
                         self._scene.scene.remove_geometry("bounding_box_"+str(i))
                     self.bounding_boxes = False
 
+        # R - remove all geometries
+        if event.key == 114:
+            self.remove_all_geometries()
+            self.gt_clusters = False
+            self.my_clusters = False
+            self.sphere_added = False
+            self.sphere_animation_started = False
+            self.collision_with_c_hulls = False
+            self.collision_with_bounding_boxes = False
+            self.collision = False
+            self.collision_triangle = None
+            self.collision_c_hull = None
+            self.collision_bounding_box = None
+            self.num_of_c_hulls = 0
+            self.c_hulls = False
+            self.num_of_bounding_boxes = 0
+            self.bounding_boxes = False
+            self.ground_truth = False
                     
         
         print("key pressed:", event.key)
@@ -697,13 +716,35 @@ class AppWindow:
     
         
 def main():
+    print("3D Scene Segmentation and Detetction")
+    print("Press:")
+    print("1 -> load ground truth point cloud")
+    print("2 -> load ground truth planes")
+    print("3 -> load ground truth objects")
+    print("4 -> load my point cloud")
+    print("5 -> load my planes")
+    print("6 -> load my objects")
+    print("7 -> load gt clusters")
+    print("8 -> load my clusters")
+    print("up key -> next cluster")
+    print("down key -> previous cluster")
+    print("B -> show bounding box of each the cluster that appears in the scene")
+    print("C -> show convex hull of each the cluster that appears in the scene")
+    print("G -> all ground truth clusters")
+    print("M -> all my clusters")
+    print("S -> add sphere to scene")
+    print("A -> sphere animation with c_hulls")
+    print("Q -> sphere animation with bounding boxes")
+    print("R -> RESET")
+    print("ESC -> exit")
+
     gui.Application.instance.initialize()
 
     # initialize GUI
     app = AppWindow(1280, 720)
 
     gui.Application.instance.run()
-    
+
 
 if __name__ == "__main__":
     main()
