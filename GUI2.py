@@ -85,6 +85,8 @@ class AppWindow:
         self.collision_with_bounding_boxes = False
 
         self.ground_truth = False
+
+        self.triangles = False
        
     def _on_layout(self, layout_context):
         r = self.window.content_rect
@@ -122,6 +124,7 @@ class AppWindow:
         # add point cloud to scene
         self._scene.scene.add_geometry("pointcloud", pcd, material)
         self.add_geometry(pcd, "pointcloud")
+        return pcd
 
     def cluster(self, index):
         # remove all geometries
@@ -136,9 +139,8 @@ class AppWindow:
             vertices, colors = self.load_pcd('clusters/my_clusters/cluster_'+index+'/vertices.npy', 'clusters/my_clusters/cluster_'+index+'/colors.npy')
         
         # add point cloud to scene
-        self.add_pcd(vertices, colors)
+        pcd = self.add_pcd(vertices, colors)
         vertices = U.unit_sphere_normalization_vertices(vertices)
-
         # calculate convex hull
         convex_hull = U.chull(vertices)
         # compute the center of the cluster
@@ -163,6 +165,15 @@ class AppWindow:
         # add bounding box to scene
         # self._scene.scene.add_geometry("bounding_box", bounding_box, material)
         self.add_geometry(bounding_box, "bounding_box")
+
+        # ball pivoting algorithm with multiple radii
+        pcd.estimate_normals() 
+        radii = [1, 2, 5, 10, 20, 40]
+        mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, o3d.utility.DoubleVector(radii))
+        self.add_geometry(mesh, "mesh")
+        # self._scene.scene.add_geometry("mesh", mesh, material)
+        # print("mesh vertices:", np.asarray(mesh.vertices).shape)
+        # print("mesh triangles:", np.asarray(mesh.triangles).shape)
 
         # check that vertices and convex hull vertices are the same
         print("vertices shape:", vertices.shape)
@@ -487,8 +498,7 @@ class AppWindow:
             # add point cloud to scene
             self.add_pcd(vertices, colors)
 
-            return gui.Widget.EventCallbackResult.HANDLED
-        
+            return gui.Widget.EventCallbackResult.HANDLED 
 
         # 4 - load my point cloud
         if event.key == ord('4'):
@@ -689,6 +699,26 @@ class AppWindow:
                         self._scene.scene.remove_geometry("bounding_box_"+str(i))
                     self.bounding_boxes = False
 
+        # T - show triangles
+        if event.key == 116:
+            if not self.triangles:
+                # find mesh from geometries
+                mesh = self.geometries["mesh"]
+                # add mesh to scene
+                self._scene.scene.add_geometry("mesh", mesh, material)
+                # remove pcd from scene
+                self._scene.scene.remove_geometry("pointcloud")
+                # update triangles
+                self.triangles = True
+            else:
+                # remove mesh from scene
+                self._scene.scene.remove_geometry("mesh")
+                # add pcd to scene
+                pcd = self.geometries["pointcloud"]
+                self._scene.scene.add_geometry("pointcloud", pcd, material)
+                # update triangles
+                self.triangles = False
+
         # R - remove all geometries
         if event.key == 114:
             self.remove_all_geometries()
@@ -707,6 +737,7 @@ class AppWindow:
             self.num_of_bounding_boxes = 0
             self.bounding_boxes = False
             self.ground_truth = False
+            self.triangles = False
                     
         
         print("key pressed:", event.key)
@@ -730,6 +761,7 @@ def main():
     print("down key -> previous cluster")
     print("B -> show bounding box of each the cluster that appears in the scene")
     print("C -> show convex hull of each the cluster that appears in the scene")
+    print("T -> show triangles of the mesh")
     print("G -> all ground truth clusters")
     print("M -> all my clusters")
     print("S -> add sphere to scene")
