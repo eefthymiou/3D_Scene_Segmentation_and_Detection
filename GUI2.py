@@ -67,15 +67,22 @@ class AppWindow:
         self.clusters = False
         self.sphere_added = False
         self.sphere_animation_started = False
-        self.sphere_center = [0,10,50]
-        self.sphere_radius = 30
-        self.length_velocity = 5
+        self.sphere_center = np.zeros(3)
+        self.sphere_radius = 0
+        self.length_velocity = 0
         self.sphere_velocity = np.zeros(3)
 
         self.collision = False
         self.num_of_c_hulls = 0
+        self.c_hulls = False
+        self.num_of_bounding_boxes = 0
+        self.bounding_boxes = False
+
         self.collision_triangle = None
         self.collision_c_hull = None
+
+        self.collision_with_c_hulls = False
+        self.collision_with_bounding_boxes = False
        
     def _on_layout(self, layout_context):
         r = self.window.content_rect
@@ -167,26 +174,28 @@ class AppWindow:
         self.remove_all_geometries()
 
         if ground_truth:
-            self.sphere_center = [0,10,50]
+            self.sphere_center = np.array([0.0,10.0,50.0]) 
             self.sphere_radius = 30
             self.length_velocity = 5
             directory = 'clusters/gt_clusters'
             num_of_clusters = self.num_of_gt_clusters
         else:
-            self.sphere_center = [-90,-20,300]
+            self.sphere_center = np.array([-90.0,-20.0,100.0])
             self.sphere_radius = 350
             self.length_velocity = 20
             directory = 'clusters/my_clusters'
             num_of_clusters = self.num_of_my_clusters
 
-
         c_hulls = []
+        bounding_boxes = []
         for i in range(num_of_clusters):
             vertices, colors = self.load_pcd(directory+'/cluster_'+str(i)+'/vertices.npy',directory+'/cluster_'+str(i)+'/colors.npy')
             # find the convex hull of the cluster
             convex_hull = U.chull(vertices)
             c_hulls = np.append(c_hulls, convex_hull)
-
+            # find the bounding box of the cluster
+            bounding_box = U.find_AABB(vertices)
+            bounding_boxes = np.append(bounding_boxes, bounding_box)
             if i==0:
                 total_vertices = vertices
                 total_colors = colors
@@ -198,9 +207,9 @@ class AppWindow:
         # normalize the vertices
         total_vertices = np.asarray(total_vertices)
         distance = np.sqrt(((total_vertices * total_vertices).sum(axis = -1)))
-        max_distance = np.max(distance)
-        total_vertices /= max_distance
         total_vertices *= 1000
+        max_distance = np.max(distance)
+        total_vertices /= max_distance   
         center = np.mean(total_vertices,axis=0)
         total_vertices -= center
 
@@ -220,6 +229,28 @@ class AppWindow:
             i+=1
         self.num_of_c_hulls = i
 
+
+        i=0
+        for bounding_box in bounding_boxes:
+            print(i)
+            # find vertices/points of the bounding box
+            bounding_box.scale(1/max_distance, np.zeros(3))
+            bounding_box.scale(1000, np.zeros(3))
+            bounding_box.translate(-center)
+            # self._scene.scene.add_geometry("bounding_box_"+str(i), bounding_box, material)
+            self.add_geometry(bounding_box, "bounding_box_"+str(i))
+            i+=1 
+        
+        # compute the bounding box of the total point cloud
+        bounding_box = U.find_AABB(total_vertices)
+        # self._scene.scene.add_geometry("bounding_box", bounding_box, material)
+        self.add_geometry(bounding_box, "bounding_box_"+str(i))
+        i+=1
+        
+        self.num_of_bounding_boxes = i
+        print("num of bounding boxes:", self.num_of_bounding_boxes)
+              
+        # create point cloud
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(total_vertices)
         pcd.colors = o3d.utility.Vector3dVector(total_colors)
@@ -249,10 +280,9 @@ class AppWindow:
         # noise in velocity
         self.sphere_velocity[0] += random.uniform(-1.2, 1.2)
         
-        # multiply by 5
+        # multiply 
         self.sphere_velocity *= self.length_velocity
         
-
         return gui.Widget.EventCallbackResult.HANDLED
 
     def update_sphere(self):
@@ -265,27 +295,47 @@ class AppWindow:
         # translate sphere
         translation_vec = self.sphere_velocity 
         sphere.translate(translation_vec)
-        # update the center of the sphere
+        # update the center of the sphere (np.array)
         self.sphere_center += translation_vec
 
-        # check for collision
-        self.collisions()
+        if self.collision_with_c_hulls:
+            # check for collision
+            self.collisions_c_hulls()
 
-        if self.collision == True:
-            # find the convex hull from geometries
-            convex_hull = self.geometries["convex_hull_" + str(self.collision_c_hull)]
-            # add convex_hull to the scene with red color
-            c_mat = rendering.MaterialRecord()
-            c_mat.base_color = np.array([1, 0, 0, 1.0])
-            self._scene.scene.add_geometry("convex_hull_"+str(self.collision_c_hull), convex_hull, c_mat)
-            
+            if self.collision == True:
+                # find the convex hull from geometries
+                convex_hull = self.geometries["convex_hull_" + str(self.collision_c_hull)]
+                # add convex_hull to the scene with red color
+                c_mat = rendering.MaterialRecord()
+                c_mat.base_color = np.array([1, 0, 0, 1.0])
+                self._scene.scene.add_geometry("convex_hull_"+str(self.collision_c_hull), convex_hull, c_mat)
+        
+        if self.collision_with_bounding_boxes:
+            # check for collision
+            self.collisions_b_boxes()
+
+            if self.collision == True:
+                # find the bounding box from geometries
+                bounding_box = self.geometries["bounding_box_" + str(self.collision_bounding_box)]
+                self._scene.scene.add_geometry("bounding_box_"+str(self.collision_bounding_box), bounding_box, mat)
+        
 
         # add sphere to scene
         self._scene.scene.add_geometry("sphere", sphere, mat)
+    
+    def collisions_b_boxes(self):
+        for i in range(self.num_of_bounding_boxes-1):
+            # find the bounding box from geometries
+            bounding_box = self.geometries["bounding_box_" + str(i)]
+            # check if the sphere is inside the bounding box
+            collision = U.is_sphere_inside_bounding_box(self.sphere_center, np.sqrt(self.sphere_radius), bounding_box)
+            if collision:
+                self.collision = True
+                self.collision_bounding_box = i
+                print("Collision detected by bounding box")
+                return
         
-
-    def collisions(self):
-
+    def collisions_c_hulls(self):
         for i in range(self.num_of_c_hulls):
             # find the convex hull from geometries
             convex_hull = self.geometries["convex_hull_" + str(i)]
@@ -339,19 +389,22 @@ class AppWindow:
                         self.collision_c_hull = i
                         print("Collision detected by edge")
                         return
-
+    
     def sphere_animation(self):
         if self.sphere_animation_started: return gui.Widget.EventCallbackResult.HANDLED 
-        while True:
-            self.sphere_animation_started = True
+        self.sphere_animation_started = True
 
+        while True:
             # update the scene
             gui.Application.instance.post_to_main_thread(self.window, self.update_sphere)
-            time.sleep(1)
+            if self.collision_with_bounding_boxes: time.sleep(0.05)
+            if self.collision_with_c_hulls: time.sleep(0.5)
 
             if self.collision == True: 
                 self.sphere_animation_started = False
                 self.collision = False
+                if self.collision_with_bounding_boxes : self.collision_with_bounding_boxes = False
+                if self.collision_with_c_hulls : self.collision_with_c_hulls = False
                 break
             
         return gui.Widget.EventCallbackResult.HANDLED
@@ -483,15 +536,22 @@ class AppWindow:
             self.my_clusters = False
             if self.clusters: self.add_sphere_to_scene()
 
-        # a - sphere animation 
+        # a - sphere animation with c_hulls
         if event.key == 97:
             self.gt_clusters = False
             self.my_clusters = False
             if self.sphere_added: 
+                self.collision_with_c_hulls = True
                 threading.Thread(target=self.sphere_animation).start()
-
-
         
+        # q - sphere animaation with bounding boxes
+        if event.key == 113:
+            self.gt_clusters = False
+            self.my_clusters = False
+            if self.sphere_added: 
+                self.collision_with_bounding_boxes = True
+                threading.Thread(target=self.sphere_animation).start()
+                                 
         # up key (265) - change cluster 
         if event.key == 265:
             if self.gt_clusters:
@@ -544,6 +604,19 @@ class AppWindow:
                     # remove convex hull from scene
                     self._scene.scene.remove_geometry("convex_hull")
                     self.convex_hull = False
+            
+            if self.num_of_c_hulls > 0:
+                if self.c_hulls == False:
+                    # add convex hulls to the scene
+                    for i in range(self.num_of_c_hulls):
+                        convex_hull = self.geometries["convex_hull_"+str(i)]
+                        self._scene.scene.add_geometry("convex_hull_"+str(i), convex_hull, material)
+                    self.c_hulls = True
+                else:
+                    # remove convex hulls from the scene
+                    for i in range(self.num_of_c_hulls):
+                        self._scene.scene.remove_geometry("convex_hull_"+str(i))
+                    self.c_hulls = False
 
         # B - show bounding box
         if event.key == 98:
@@ -568,11 +641,28 @@ class AppWindow:
                 else:
                     # remove bounding box from scene
                     self._scene.scene.remove_geometry("bounding_box")
-                    self.bounding_box = False      
+                    self.bounding_box = False 
+
+            if self.num_of_bounding_boxes > 0:
+                if self.bounding_boxes == False:
+                    # add bounding boxes to the scene
+                    for i in range(self.num_of_bounding_boxes):
+                        bounding_box = self.geometries["bounding_box_"+str(i)]
+                        self._scene.scene.add_geometry("bounding_box_"+str(i), bounding_box, material)
+                    self.bounding_boxes = True
+                else:
+                    # remove bounding boxes from the scene
+                    for i in range(self.num_of_bounding_boxes):
+                        self._scene.scene.remove_geometry("bounding_box_"+str(i))
+                    self.bounding_boxes = False
+
+                    
         
         print("key pressed:", event.key)
         self.last_click = time.time()
         return gui.Widget.EventCallbackResult.HANDLED
+    
+    
         
 def main():
     gui.Application.instance.initialize()

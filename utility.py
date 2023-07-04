@@ -312,3 +312,31 @@ def distance(point1, point2):
     # Calculate the Euclidean distance between two points in 3D space
     return np.linalg.norm(np.array(point1) - np.array(point2))
 
+def find_AABB(points):
+    points = np.asarray(points)
+
+    minxyz = np.min(points,axis=0)
+    maxxyz = np.max(points,axis=0)
+
+    aabb = o3d.geometry.AxisAlignedBoundingBox(minxyz,maxxyz)
+    aabb.color = black
+    return aabb
+
+
+def is_sphere_inside_bounding_box(center, radius, bbox):
+    # Get the minimum and maximum points of the bounding box
+    bbox_min = np.array(bbox.min_bound)
+    bbox_max = np.array(bbox.max_bound)
+
+    # Calculate the closest point on the bounding box to the sphere's center
+    closest_point = np.clip(center, bbox_min, bbox_max)
+
+    # Calculate the distance between the sphere's center and the closest point on the bounding box
+    distance = np.linalg.norm(center - closest_point)
+
+    # Check if the distance is less than or equal to the sphere's radius
+    is_inside = distance <= radius
+
+    return is_inside
+        
+
