@@ -67,6 +67,7 @@ class AppWindow:
         self.sphere_animation_started = False
         self.sphere_center = [0,10,50]
         self.sphere_radius = 30
+        self.length_velocity = 5
         self.sphere_velocity = np.zeros(3)
 
         self.collision = False
@@ -153,13 +154,29 @@ class AppWindow:
     
         return gui.Widget.EventCallbackResult.HANDLED
 
-    def gt_clusters_visualization(self):
+
+
+    def clusters_visualization(self,ground_truth=True):
         # self remove all geometries
         self.remove_all_geometries()
 
+        if ground_truth:
+            self.sphere_center = [0,10,50]
+            self.sphere_radius = 30
+            self.length_velocity = 5
+            directory = 'clusters/gt_clusters'
+            num_of_clusters = self.num_of_gt_clusters
+        else:
+            self.sphere_center = [-90,-20,300]
+            self.sphere_radius = 350
+            self.length_velocity = 20
+            directory = 'clusters/my_clusters'
+            num_of_clusters = self.num_of_my_clusters
+
+
         c_hulls = []
-        for i in range(self.num_of_gt_clusters):
-            vertices, colors = self.load_pcd('clusters/gt_clusters/cluster_'+str(i)+'/vertices.npy', 'clusters/gt_clusters/cluster_'+str(i)+'/colors.npy')
+        for i in range(num_of_clusters):
+            vertices, colors = self.load_pcd(directory+'/cluster_'+str(i)+'/vertices.npy',directory+'/cluster_'+str(i)+'/colors.npy')
             # find the convex hull of the cluster
             convex_hull = U.chull(vertices)
             c_hulls = np.append(c_hulls, convex_hull)
@@ -226,9 +243,8 @@ class AppWindow:
         # noise in velocity
         self.sphere_velocity[0] += random.uniform(-1.2, 1.2)
         
-
         # multiply by 5
-        self.sphere_velocity *= 5
+        self.sphere_velocity *= self.length_velocity
         
 
         return gui.Widget.EventCallbackResult.HANDLED
@@ -255,9 +271,8 @@ class AppWindow:
             # add convex_hull to the scene with red color
             c_mat = rendering.MaterialRecord()
             c_mat.base_color = np.array([1, 0, 0, 1.0])
-            self._scene.scene.add_geometry("convex_hull", convex_hull, c_mat)
-
-
+            self._scene.scene.add_geometry("convex_hull_"+str(self.collision_c_hull), convex_hull, c_mat)
+            
 
         # add sphere to scene
         self._scene.scene.add_geometry("sphere", sphere, mat)
@@ -328,7 +343,10 @@ class AppWindow:
             gui.Application.instance.post_to_main_thread(self.window, self.update_sphere)
             time.sleep(1)
 
-            if self.collision == True: break
+            if self.collision == True: 
+                self.sphere_animation_started = False
+                self.collision = False
+                break
             
             
         return gui.Widget.EventCallbackResult.HANDLED
@@ -444,7 +462,14 @@ class AppWindow:
         if event.key == 103:
             self.gt_clusters = False
             self.my_clusters = False
-            self.gt_clusters_visualization()
+            self.clusters_visualization(True)
+            self.clusters = True
+        
+        # M - all my clusters
+        if event.key == 109:
+            self.gt_clusters = False
+            self.my_clusters = False
+            self.clusters_visualization(False)
             self.clusters = True
 
         # S - sphere
