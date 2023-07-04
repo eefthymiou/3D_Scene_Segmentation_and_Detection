@@ -61,6 +61,8 @@ class AppWindow:
         self.my_clusters_index = 0
         self.num_of_my_clusters = U.count_directories('clusters/my_clusters')
         self.convex_hull = False
+        self.bounding_box = False
+
         self.last_click = time.time()
         self.clusters = False
         self.sphere_added = False
@@ -123,31 +125,35 @@ class AppWindow:
             vertices, colors = self.load_pcd('clusters/gt_clusters/cluster_'+index+'/vertices.npy', 'clusters/gt_clusters/cluster_'+index+'/colors.npy')
         elif (self.my_clusters):
             vertices, colors = self.load_pcd('clusters/my_clusters/cluster_'+index+'/vertices.npy', 'clusters/my_clusters/cluster_'+index+'/colors.npy')
+        
         # add point cloud to scene
         self.add_pcd(vertices, colors)
-
         vertices = U.unit_sphere_normalization_vertices(vertices)
 
         # calculate convex hull
         convex_hull = U.chull(vertices)
-        
-        # print type of convext hull (mesh or point cloud)
-        print(type(convex_hull))
-
-        # compute the center of the convex hull
-        convex_hull_center = np.mean(vertices,axis=0)
+        # compute the center of the cluster
+        cluster_center = np.mean(vertices,axis=0)
         
         if type(convex_hull) == o3d.cpu.pybind.geometry.TriangleMesh:
             # translate the convex hull to the center of the point cloud
-            convex_hull = U.translate_mesh(convex_hull, -convex_hull_center)
+            convex_hull = U.translate_mesh(convex_hull, -cluster_center)
         if type(convex_hull) == o3d.cpu.pybind.geometry.LineSet:
             print("LineSet")
             # translate the convex hull to the center of the point cloud
-            convex_hull = U.translate_LineSet(convex_hull, -convex_hull_center)
+            convex_hull = U.translate_LineSet(convex_hull, -cluster_center)
         
         # add convex hull to scene
         # self._scene.scene.add_geometry("convex_hull", convex_hull, material)
         self.add_geometry(convex_hull, "convex_hull")
+
+        # calculate the bounding box
+        bounding_box = U.find_AABB(vertices)
+        # translate the bounding box to the center of the point cloud
+        bounding_box.translate(-cluster_center)
+        # add bounding box to scene
+        # self._scene.scene.add_geometry("bounding_box", bounding_box, material)
+        self.add_geometry(bounding_box, "bounding_box")
 
         # check that vertices and convex hull vertices are the same
         print("vertices shape:", vertices.shape)
@@ -348,7 +354,6 @@ class AppWindow:
                 self.collision = False
                 break
             
-            
         return gui.Widget.EventCallbackResult.HANDLED
 
     def _on_key_pressed(self, event):
@@ -515,8 +520,8 @@ class AppWindow:
                 self.cluster(self.my_clusters_index)
         
 
-        # ENTER - show convex hull
-        if event.key == 10:
+        # C - show convex hull
+        if event.key == 99:
             if self.gt_clusters:
                 if self.convex_hull == False:
                     # find convex_hull from geometries
@@ -539,9 +544,33 @@ class AppWindow:
                     # remove convex hull from scene
                     self._scene.scene.remove_geometry("convex_hull")
                     self.convex_hull = False
-    
-        print(event.key)      
+
+        # B - show bounding box
+        if event.key == 98:
+            if self.gt_clusters:
+                if self.bounding_box == False:
+                    # find bounding_box from geometries
+                    bounding_box = self.geometries["bounding_box"]
+                    # add bounding box to scene
+                    self._scene.scene.add_geometry("bounding_box", bounding_box, material)
+                    self.bounding_box = True
+                else:
+                    # remove bounding box from scene
+                    self._scene.scene.remove_geometry("bounding_box")
+                    self.bounding_box = False
+            elif (self.my_clusters):
+                if self.bounding_box == False:
+                    # find bounding_box from geometries
+                    bounding_box = self.geometries["bounding_box"]
+                    # add bounding box to scene
+                    self._scene.scene.add_geometry("bounding_box", bounding_box, material)
+                    self.bounding_box = True
+                else:
+                    # remove bounding box from scene
+                    self._scene.scene.remove_geometry("bounding_box")
+                    self.bounding_box = False      
         
+        print("key pressed:", event.key)
         self.last_click = time.time()
         return gui.Widget.EventCallbackResult.HANDLED
         
