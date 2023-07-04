@@ -83,6 +83,8 @@ class AppWindow:
 
         self.collision_with_c_hulls = False
         self.collision_with_bounding_boxes = False
+
+        self.ground_truth = False
        
     def _on_layout(self, layout_context):
         r = self.window.content_rect
@@ -169,20 +171,20 @@ class AppWindow:
 
 
 
-    def clusters_visualization(self,ground_truth=True):
+    def clusters_visualization(self):
         # self remove all geometries
         self.remove_all_geometries()
 
-        if ground_truth:
+        if self.ground_truth:
             self.sphere_center = np.array([0.0,10.0,50.0]) 
             self.sphere_radius = 30
-            self.length_velocity = 5
+            # self.length_velocity = 5
             directory = 'clusters/gt_clusters'
             num_of_clusters = self.num_of_gt_clusters
         else:
-            self.sphere_center = np.array([-90.0,-20.0,100.0])
+            self.sphere_center = np.array([-90.0,-20.0,200.0])
             self.sphere_radius = 350
-            self.length_velocity = 20
+            # self.length_velocity = 20
             directory = 'clusters/my_clusters'
             num_of_clusters = self.num_of_my_clusters
 
@@ -271,18 +273,6 @@ class AppWindow:
         self.add_geometry(sphere, "sphere")
         self.sphere_added = True
 
-        # set sphere velocity
-        # find the center of the sphere 
-        self.sphere_velocity = np.zeros(3) - self.sphere_center
-        # normalize velocity
-        self.sphere_velocity /= np.linalg.norm(self.sphere_velocity)
-        
-        # noise in velocity
-        self.sphere_velocity[0] += random.uniform(-1.2, 1.2)
-        
-        # multiply 
-        self.sphere_velocity *= self.length_velocity
-        
         return gui.Widget.EventCallbackResult.HANDLED
 
     def update_sphere(self):
@@ -334,6 +324,16 @@ class AppWindow:
                 self.collision_bounding_box = i
                 print("Collision detected by bounding box")
                 return
+        
+        # check the big bounding box
+        bounding_box = self.geometries["bounding_box_" + str(self.num_of_bounding_boxes-1)]
+        # check if the sphere is inside the bounding box
+        collision = U.is_sphere_inside_bounding_box(self.sphere_center, np.sqrt(self.sphere_radius), bounding_box)
+        if not collision:
+            self.collision = True
+            self.collision_bounding_box = self.num_of_bounding_boxes-1
+            print("Collision detected by bounding box")
+            return
         
     def collisions_c_hulls(self):
         for i in range(self.num_of_c_hulls):
@@ -394,11 +394,41 @@ class AppWindow:
         if self.sphere_animation_started: return gui.Widget.EventCallbackResult.HANDLED 
         self.sphere_animation_started = True
 
+        if self.collision_with_bounding_boxes:
+            if self.ground_truth:
+                noise_x = random.randint(-100,100)
+                noise_y = random.randint(0,10)
+                self.length_velocity = 3
+            else:
+                noise_x = random.randint(-300,100)
+                noise_y = random.randint(-300,40)
+                self.length_velocity = 4
+
+        elif self.collision_with_c_hulls:
+            if self.ground_truth:
+                noises = [[-100,0], [0,10], [0,-10]]
+                noise_x, noise_y = random.choice(noises)
+                self.length_velocity = 5
+            else:
+                noises = [[-300,-100], [-100,-50],[20,-50]]
+                noise_x, noise_y = random.choice(noises)
+                self.length_velocity = 15
+
+        # set sphere velocity
+        # find the center of the sphere 
+        self.sphere_velocity = np.zeros(3) - self.sphere_center 
+        self.sphere_velocity[0] += noise_x
+        self.sphere_velocity[1] += noise_y
+        # normalize velocity
+        self.sphere_velocity /= np.linalg.norm(self.sphere_velocity)
+        # set the length of the velocity
+        self.sphere_velocity *= self.length_velocity
+
         while True:
             # update the scene
             gui.Application.instance.post_to_main_thread(self.window, self.update_sphere)
             if self.collision_with_bounding_boxes: time.sleep(0.05)
-            if self.collision_with_c_hulls: time.sleep(0.5)
+            if self.collision_with_c_hulls: time.sleep(1)
 
             if self.collision == True: 
                 self.sphere_animation_started = False
@@ -520,14 +550,16 @@ class AppWindow:
         if event.key == 103:
             self.gt_clusters = False
             self.my_clusters = False
-            self.clusters_visualization(True)
+            self.ground_truth = True
+            self.clusters_visualization()
             self.clusters = True
         
         # M - all my clusters
         if event.key == 109:
             self.gt_clusters = False
             self.my_clusters = False
-            self.clusters_visualization(False)
+            self.ground_truth = False
+            self.clusters_visualization()
             self.clusters = True
 
         # S - sphere
