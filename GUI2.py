@@ -116,7 +116,7 @@ class AppWindow:
     
     def add_pcd(self,vertices,colors):
         # create point cloud
-        pcd = o3d.geometry.PointCloud()
+        pcd = o3d.geometry. PointCloud()
         pcd.points = o3d.utility.Vector3dVector(vertices)
         pcd.colors = o3d.utility.Vector3dVector(colors)
         # prepare point cloud
@@ -125,6 +125,16 @@ class AppWindow:
         self._scene.scene.add_geometry("pointcloud", pcd, material)
         self.add_geometry(pcd, "pointcloud")
         return pcd
+
+    def point_cloud_triangulation(self,pcd):
+        # ball pivoting algorithm with multiple radii
+        pcd.estimate_normals() 
+        radii = [5, 10, 50, 100, 200, 300] 
+        mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, o3d.utility.DoubleVector(radii))
+        self.add_geometry(mesh, "mesh")
+        self._scene.scene.add_geometry("mesh", mesh, material)
+        print("mesh vertices:", np.asarray(mesh.vertices).shape)
+        print("mesh triangles:", np.asarray(mesh.triangles).shape)
 
     def cluster(self, index):
         # remove all geometries
@@ -166,20 +176,10 @@ class AppWindow:
         # self._scene.scene.add_geometry("bounding_box", bounding_box, material)
         self.add_geometry(bounding_box, "bounding_box")
 
-        # ball pivoting algorithm with multiple radii
-        pcd.estimate_normals() 
-        radii = [1, 2, 5, 10, 20, 40]
-        mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, o3d.utility.DoubleVector(radii))
-        self.add_geometry(mesh, "mesh")
-        # self._scene.scene.add_geometry("mesh", mesh, material)
-        # print("mesh vertices:", np.asarray(mesh.vertices).shape)
-        # print("mesh triangles:", np.asarray(mesh.triangles).shape)
-
         # check that vertices and convex hull vertices are the same
         print("vertices shape:", vertices.shape)
     
         return gui.Widget.EventCallbackResult.HANDLED
-
 
 
     def clusters_visualization(self):
@@ -702,10 +702,10 @@ class AppWindow:
         # T - show triangles
         if event.key == 116:
             if not self.triangles:
-                # find mesh from geometries
-                mesh = self.geometries["mesh"]
+                # find the pcd
+                pcd = self.geometries["pointcloud"] 
                 # add mesh to scene
-                self._scene.scene.add_geometry("mesh", mesh, material)
+                self.point_cloud_triangulation(pcd)
                 # remove pcd from scene
                 self._scene.scene.remove_geometry("pointcloud")
                 # update triangles
