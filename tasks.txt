@@ -1,0 +1,16 @@
+3D Scene Segmentation & Detection
+Part A
+● Load stereoscopic images of scenes. Prefer scenes with large planar areas with large objects on
+them, such as cars.
+● Use the stereo images to generate disparity maps and convert them to point clouds (P1).
+● Apply denoising algorithms of your choice to improve the quality of the scene
+Part B
+● Load a second point cloud directly (P2).
+● Apply planar detection algorithms of your choice to detect and remove points that belong to
+large planar areas (walls, floor) to both point clouds. Comment on the differences
+● Perform clustering to the remaining points to group points that belong to the same object.
+Devise a criterion to keep only clusters that are actual objects. Show their bounding boxes.
+● Turn the planar areas and clusters into virtual objects, by calculating their bounding box/convex
+hull. Throw a sphere and simulate its trajectory, performing collision detection with the objects
+you created.
+● Perform object-based triangulation.
